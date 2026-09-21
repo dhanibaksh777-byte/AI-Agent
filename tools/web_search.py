@@ -4,9 +4,9 @@ import os
 
 load_dotenv()
 
-api_key = os.getenv("tavily_api_key")
+api_key = os.getenv("tavly_api_key")
 if not api_key:
-    raise RuntimeError("tavliy api key does'nt exists check your .env file")
+    raise RuntimeError("tavly api key does'nt exists check your .env file")
 
 def get_response(query : str):
     tavliy_Client = TavilyClient(api_key=api_key)

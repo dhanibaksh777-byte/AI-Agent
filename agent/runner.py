@@ -26,33 +26,42 @@ if not api_key :
     raise RuntimeError("groq api key does'nt found")
 client = Groq(api_key=api_key)
 
-def get_responses(message : str, db : Session):
-    Message = [{"role" : "system", "content" : SYSTEM_PROMPT},
-               {"role" : "user", "content" : message}
-               ]
+def get_responses(message : str, db : Session,conv_id : str):
+    message_list = [{"role" : "system", "content" : SYSTEM_PROMPT}]
+    history = db.query(Message).filter(Message.conversation_id == conv_id).all()
+    for msg in history:
+        message_list.append({"role" : msg.role,"content" : msg.content})
+    message_list.append({"role" : "user", "content" : message})
+
     while True:
 
         response = client.chat.completions.create(
-            messages=Message,
-            model = "openai/gpt-oss-120",
+            messages=message_list,
+            model = "openai/gpt-oss-120b",
             tools=[web_search_tool, calculator_tool, datetime_tool, save_note_tool]
 
         )
         tool_Call = response.choices[0].message.tool_calls
+
         if not tool_Call:
-            return response.choices[0].message.content
-        Message.append(response.choices[0].message)
+            final_reply = response.choices[0].message.content
+            db.add(Message(conversation_id=conv_id, role="user", content=message))
+            db.add(Message(conversation_id=conv_id, role="assistant", content=final_reply))
+            db.commit()
+            return final_reply
+    
+        message_list.append(response.choices[0].message)
         tool_name = tool_Call[0].function.name
         arguments = json.loads(tool_Call[0].function.arguments)
         if tool_name == "web_search_tool":
             final_answer = get_response(arguments["query"])
-            Message.append({"role" : "tool", "content" : str(final_answer),"tool_call_id" : tool_Call[0].id})
+            message_list.append({"role" : "tool", "content" : str(final_answer),"tool_call_id" : tool_Call[0].id})
         elif tool_name == "calculator_tool":
             final_answer = calculate(arguments["expressions"])
-            Message.append({"role" : "tool", "content" : str(final_answer),"tool_call_id" : tool_Call[0].id})
+            message_list.append({"role" : "tool", "content" : str(final_answer),"tool_call_id" : tool_Call[0].id})
         elif tool_name == "datetime_tool":
             final_answer = current_time_date()
-            Message.append({"role" : "tool", "content" : str(final_answer),"tool_call_id" : tool_Call[0].id})
+            message_list.append({"role" : "tool", "content" : str(final_answer),"tool_call_id" : tool_Call[0].id})
         elif tool_name == "save_note_tool":
             final_answer = save_note(arguments["content"],db)
-            Message.append({"role" : "tool", "content" : str(final_answer),"tool_call_id" : tool_Call[0].id})
+            message_list.append({"role" : "tool", "content" : str(final_answer),"tool_call_id" : tool_Call[0].id})
