@@ -2,6 +2,9 @@
 
 A powerful AI Agent built from scratch using FastAPI and Groq, with support for multiple tools and conversation memory.
 
+## Live Demo
+Backend: https://ai-agent1-riqx.onrender.com/docs
+
 ## Features
 
 - **Web Search** — Real-time web search using Tavily
